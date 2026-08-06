@@ -1,0 +1,11 @@
+{
+  "name": "post-scorer-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Public thin-client UI for the post-scorer. Calls the hosted API; contains no scoring algorithm.",
+  "scripts": {
+    "test": "node --test",
+    "dev": "wrangler pages dev ."
+  }
+}
