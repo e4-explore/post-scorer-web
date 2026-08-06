@@ -24,7 +24,11 @@
   * { box-sizing: border-box; }
   html, body { margin: 0; background: var(--bg); }
   /* ONE font, ONE size, everywhere. */
-  body { color: var(--muted); font-family: var(--mono); font-size: 14px; line-height: 1.6; min-height: 100vh; }
+  body { color: var(--muted); font-family: var(--mono); font-size: 14px; line-height: 1.6; min-height: 100vh; display: flex; flex-direction: column; }
+  /* On first load the input cluster sits centered in the viewport. Once the
+     post is scored we drop the centering so the page grows/scrolls from the
+     top (the slide-up itself is FLIP-animated in JS). */
+  body.intro { justify-content: center; }
   b, strong { font-weight: 700; }
 
   .wrap { max-width: 900px; margin: 0 auto; padding: 24px 20px 48px; }
@@ -100,7 +104,7 @@
   @media (prefers-reduced-motion: reduce) { .tline { width: auto !important; animation: none !important; } .bootline { animation: none; opacity: 1; } }
 </style>
 </head>
-<body>
+<body class="intro">
   <div class="wrap">
     <div class="prompt"><a class="u" href="https://x.com/e4_explore" target="_blank" rel="noopener">e4<span class="ink">_explore</span></a><span class="p"> ~/efficiency</span> % post-scorer --platform x</div>
 
@@ -289,9 +293,28 @@
     await sleep(120);
   }
 
+  // Drop the intro centering the first time we score, sliding the input cluster
+  // up to the top with a FLIP animation (measure → reflow → animate the delta).
+  function unlockLayout() {
+    if (!document.body.classList.contains('intro')) return;
+    const el = $('.wrap');
+    const first = el.getBoundingClientRect().top;
+    document.body.classList.remove('intro');
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduce || typeof el.animate !== 'function') return;
+    const dy = first - el.getBoundingClientRect().top;
+    if (!dy) return;
+    el.animate(
+      [{ transform: `translateY(${dy}px)` }, { transform: 'translateY(0)' }],
+      { duration: 480, easing: 'cubic-bezier(.2,.8,.2,1)' }
+    );
+  }
+
   let running = false;
   async function runScore() {
     if (running) return;
+    if (!draft.value.trim()) return;
+    unlockLayout();
     const sec = $('#readoutSection');
     let r;
     try {
