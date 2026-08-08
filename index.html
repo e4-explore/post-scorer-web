@@ -228,12 +228,13 @@
         L.push(`<b class="${CLS[i.severity]}">[${LBL[i.severity]}]</b> <span class="ink">${lever}</span> <span class="e2">${'·'.repeat(dots)}</span> <span class="dim">${i.subscore}</span>`);
       }
     }
-    L.push('');
-    L.push(`<span class="c-clay">▓▒░ requires license ░▒▓</span>`);
-    L.push(`<span class="dim">[+]</span> written fix for every weak spot above`);
-    L.push(`<span class="dim">[+]</span> llm-scored hook, originality &amp; risk`);
-    L.push(`<span class="dim">[+]</span> auto-optimize: rewrite until it hits target`);
-    L.push(`<span class="dim">free = what's weak. pro = how to fix it + rewrites for you.</span> <a href="#" id="proLink">unlock →</a>`);
+    // Upsell / "requires license" section — hidden for now. Restore to re-enable.
+    // L.push('');
+    // L.push(`<span class="c-clay">▓▒░ requires license ░▒▓</span>`);
+    // L.push(`<span class="dim">[+]</span> written fix for every weak spot above`);
+    // L.push(`<span class="dim">[+]</span> llm-scored hook, originality &amp; risk`);
+    // L.push(`<span class="dim">[+]</span> auto-optimize: rewrite until it hits target`);
+    // L.push(`<span class="dim">free = what's weak. pro = how to fix it + rewrites for you.</span> <a href="#" id="proLink">unlock →</a>`);
     return L;
   }
 
