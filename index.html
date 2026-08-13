@@ -77,9 +77,15 @@
   @keyframes fadein { to { opacity: 1; } }
 
   /* readout: terminal typewriter — each line types in char by char */
-  #result { color: var(--muted); }
+  #result { color: var(--muted); overflow-x: auto; }
+  /* boxed-panel chrome */
+  .frame { color: var(--line-2); }
+  .muted2 { color: var(--muted); }
   .tline { white-space: pre; overflow: hidden; width: 0; }
   .tline.done { width: auto; overflow: visible; }
+  /* headline score row: big digits + verdict line side by side */
+  .scorerow { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; margin: 6px 0 10px; }
+  .scorerow .big3d { margin: 0; }
   /* headline score: extruded 3D block digits */
   .tline.big3d {
     width: auto; overflow: visible; line-height: 1; font-size: 19px;
@@ -200,41 +206,75 @@
     return res.json();
   }
 
-  // Build the readout as an array of terminal text lines (HTML, but each is one
-  // monospace line — colored spans reveal as the line types in).
+  // Build the readout as a boxed TUI panel — an array of full monospace lines
+  // (each already padded to the box width). Colored spans don't affect layout;
+  // every line is drawn to exactly the same width so the │ borders line up.
+  const CW = 56, BW = 20;  // box content width; subscore bar width
+  const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const span = (t, c) => c ? `<span class="${c}">${esc(t)}</span>` : esc(t);
+  const spad = (n) => ' '.repeat(Math.max(0, n));
+
   function buildLines(r) {
     const s = r.score, band = bandClass(s);
     const [vlabel, vsub] = verdictFor(s);
     const L = [];
-    L.push(`<span class="dim">// score</span>`);
-    L.push({ big: true, cls: band, text: bigDigits(s) });
-    L.push(`<span class="dim">/100 · </span><b class="${band}">${vlabel}</b><span class="dim"> · ${vsub}</span>`);
-    L.push('');
+    // content line: "│ " + html (padded to CW visible chars) + " │"
+    const line = (html, vis) => span('│ ', 'frame') + html + spad(CW - vis) + span(' │', 'frame');
+    const blank = () => line('', 0);
+    const divider = () => span('├', 'frame') + span('─'.repeat(CW + 2), 'frame') + span('┤', 'frame');
+
+    // top border
+    L.push(span('╭', 'frame') + span('─'.repeat(CW + 2), 'frame') + span('╮', 'frame'));
+
+    // score: block digits, with "/ 100" on row 1 and the verdict on row 3
+    L.push(blank());
+    const rows = bigDigits(s).split('\n');
+    rows.forEach((rw, i) => {
+      let html = span(rw, band), vis = rw.length;
+      if (i === 1) { html += spad(3) + span('/ 100', 'dim'); vis += 3 + '/ 100'.length; }
+      if (i === 3) { html += spad(3) + span(vlabel, band) + span(' · ' + vsub, 'dim'); vis += 3 + vlabel.length + 3 + vsub.length; }
+      L.push(line(html, vis));
+    });
+    L.push(blank());
+
+    // subscores
+    L.push(divider());
+    L.push(blank());
     for (const name of SUBS) {
       const v = r.subscores[name];
-      const n = Math.max(0, Math.min(WIDTH, Math.round(v / 100 * WIDTH)));
-      L.push(`${name.padEnd(11)}<span class="${barClass(v)}">${'█'.repeat(n)}</span><span class="e2">${'░'.repeat(WIDTH - n)}</span> <b class="ink">${v}</b>`);
+      const n = Math.max(0, Math.min(BW, Math.round(v / 100 * BW)));
+      const bar = span('█'.repeat(n), barClass(v)) + span('░'.repeat(BW - n), 'e2');
+      const html = span(name.padEnd(12), 'muted2') + bar + '  ' + span(String(v).padStart(3), 'ink');
+      L.push(line(html, 12 + BW + 2 + 3));
     }
-    L.push('');
-    L.push(`<span class="dim">// weak spots [</span><b class="ink">${r.issues.length}</b><span class="dim">]</span>`);
+    L.push(blank());
+
+    // weak spots
+    L.push(divider());
+    L.push(blank());
+    L.push(line(span('weak spots ', 'muted2') + span(`[${r.issues.length}]`, 'ink'), `weak spots [${r.issues.length}]`.length));
     if (!r.issues.length) {
-      L.push(`<span class="ink">✓ no mechanical weak spots. pro adds the semantic read.</span>`);
+      const html = span('✓', 'ink') + span(' no mechanical weak spots. ', 'muted2') + span('pro adds the semantic read.', 'dim');
+      L.push(line(html, '✓ no mechanical weak spots. pro adds the semantic read.'.length));
     } else {
       const LBL = { high: 'HIGH', medium: 'MED', low: 'LOW' };
       const CLS = { high: 'c-red', medium: 'c-amber', low: 'dim' };
-      for (const i of r.issues) {
-        const lever = i.lever.replace(/-/g, ' ');
-        const dots = Math.max(2, 46 - (`[${LBL[i.severity]}] ${lever} `).length - (i.subscore.length + 1));
-        L.push(`<b class="${CLS[i.severity]}">[${LBL[i.severity]}]</b> <span class="ink">${lever}</span> <span class="e2">${'·'.repeat(dots)}</span> <span class="dim">${i.subscore}</span>`);
-      }
+      r.issues.forEach((iss, idx) => {
+        const pre = (idx === r.issues.length - 1) ? '└ ' : '├ ';
+        const lever = iss.lever.replace(/-/g, ' ');
+        const tagText = `[${LBL[iss.severity]}]`.padEnd(6);
+        const leftLen = pre.length + tagText.length + 1 + lever.length;
+        const dots = Math.max(2, CW - leftLen - iss.subscore.length - 2);
+        const html = span(pre, 'frame') + span(tagText, CLS[iss.severity]) + ' ' + span(lever, 'ink')
+          + ' ' + span('·'.repeat(dots), 'e2') + ' ' + span(iss.subscore, 'dim');
+        L.push(line(html, leftLen + 1 + dots + 1 + iss.subscore.length));
+      });
     }
-    // Upsell / "requires license" section — hidden for now. Restore to re-enable.
-    // L.push('');
-    // L.push(`<span class="c-clay">▓▒░ requires license ░▒▓</span>`);
-    // L.push(`<span class="dim">[+]</span> written fix for every weak spot above`);
-    // L.push(`<span class="dim">[+]</span> llm-scored hook, originality &amp; risk`);
-    // L.push(`<span class="dim">[+]</span> auto-optimize: rewrite until it hits target`);
-    // L.push(`<span class="dim">free = what's weak. pro = how to fix it + rewrites for you.</span> <a href="#" id="proLink">unlock →</a>`);
+    L.push(blank());
+
+    // Upsell / "requires license" section — hidden for now. Restore to re-enable
+    // as boxed line()s before the bottom border below.
+    L.push(span('╰', 'frame') + span('─'.repeat(CW + 2), 'frame') + span('╯', 'frame'));
     return L;
   }
 
@@ -243,23 +283,11 @@
     const result = $('#result');
     const lines = buildLines(r);
     if (!animate) {
-      result.innerHTML = lines.map((e) => {
-        if (typeof e === 'object' && e && e.big) return `<div class="tline big3d done ${e.cls}" style="animation:none">${e.text}</div>`;
-        return `<div class="tline done">${e || '&nbsp;'}</div>`;
-      }).join('');
+      result.innerHTML = lines.map((e) => `<div class="tline done">${e || '&nbsp;'}</div>`).join('');
       return;
     }
     result.innerHTML = '';
     for (const e of lines) {
-      if (typeof e === 'object' && e && e.big) {
-        const div = document.createElement('div');
-        div.className = `tline big3d ${e.cls}`;
-        div.textContent = e.text;
-        result.appendChild(div);
-        await sleep(340);
-        div.classList.add('done');
-        continue;
-      }
       const div = document.createElement('div');
       div.className = 'tline';
       div.innerHTML = e || '&nbsp;';
