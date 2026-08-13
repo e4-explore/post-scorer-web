@@ -4,9 +4,9 @@ name: Auto-post project update
 # e4-explore/e4-efficiency) summarizes the change with Gemini, screenshots the
 # live site, and drafts an in-voice X post about the update.
 #
-# Currently in DRY-RUN: runs the full pipeline and prints the drafted post to
-# the Actions log without publishing. To go live, set the `dry-run` fallback
-# below to 'false' (or trigger manually via "Run workflow" with dry-run=false).
+# LIVE: every merge to main publishes the drafted post to X. To preview without
+# publishing, trigger manually via "Run workflow" (the dry-run input defaults to
+# true there), or set the `dry-run` fallback below back to 'true'.
 #
 # Requires these repo secrets (Settings → Secrets and variables → Actions):
 #   GEMINI_API_KEY, X_API_KEY, X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_TOKEN_SECRET
@@ -51,6 +51,6 @@ jobs:
           homepage-url: https://post-scorer-web.pages.dev
           routes: '["/"]'
           include-commit-link: 'false'
-          # Dry-run for now — flip the fallback to 'false' to publish live.
-          dry-run: ${{ github.event.inputs.dry-run || 'true' }}
+          # Live on push; manual "Run workflow" can still opt into dry-run.
+          dry-run: ${{ github.event.inputs.dry-run || 'false' }}
           sha: ${{ github.event.inputs.sha }}
