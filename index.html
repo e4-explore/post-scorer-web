@@ -118,7 +118,7 @@
         <div class="step-panel" data-panel="draft">
           <div class="termbox">
             <span class="caret">›</span>
-            <textarea id="draft" rows="1" spellcheck="true" placeholder="type or paste your post…"></textarea>
+            <textarea id="draft" rows="1" spellcheck="true" placeholder="type or paste your post…" autofocus></textarea>
             <span class="chars"><b id="sbChars">0</b>/280 chars</span>
           </div>
           <div class="termhint"><span class="m">press enter to continue</span> · shift+enter for a new line</div>
@@ -406,6 +406,7 @@
   $('#sbChars').textContent = 0;
   autoGrow();
   updateCompletion();
+  draft.focus();
 </script>
 </body>
 </html>
