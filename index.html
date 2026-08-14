@@ -35,7 +35,10 @@
   body.intro { justify-content: center; }
   b, strong { font-weight: 700; }
 
-  .wrap { width: 100%; max-width: 900px; min-width: 0; margin: 0 auto; padding: 24px 20px 48px; }
+  /* Match the column to the grader box: the readout's border line is exactly 60
+     monospace chars, so 60ch + the 20px side padding makes the input cluster and
+     the scored box the same width — landing state and scored state stay aligned. */
+  .wrap { width: 100%; max-width: calc(60ch + 40px); min-width: 0; margin: 0 auto; padding: 24px 20px 48px; }
   /* Keep every ancestor of the readout able to shrink, and cap them to the
      available width so the monospace box can't push the layout wider. */
   .grid, .box, #readoutSection, #boot, #result { min-width: 0; max-width: 100%; }
