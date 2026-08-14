@@ -22,7 +22,11 @@
     --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
   }
   * { box-sizing: border-box; }
-  html, body { margin: 0; background: var(--bg); }
+  /* The readout is a fixed-width monospace box (60 chars of white-space:pre that
+     can't wrap). Never let it widen the page past the input's default width —
+     it scrolls inside itself instead. overflow-x:hidden here is the hard stop;
+     min-width:0 down the flex/flow chain lets things actually shrink. */
+  html, body { margin: 0; background: var(--bg); overflow-x: hidden; max-width: 100%; }
   /* ONE font, ONE size, everywhere. */
   body { color: var(--muted); font-family: var(--mono); font-size: 14px; line-height: 1.6; min-height: 100vh; display: flex; flex-direction: column; }
   /* On first load the input cluster sits centered in the viewport. Once the
@@ -31,7 +35,10 @@
   body.intro { justify-content: center; }
   b, strong { font-weight: 700; }
 
-  .wrap { max-width: 900px; margin: 0 auto; padding: 24px 20px 48px; }
+  .wrap { width: 100%; max-width: 900px; min-width: 0; margin: 0 auto; padding: 24px 20px 48px; }
+  /* Keep every ancestor of the readout able to shrink, and cap them to the
+     available width so the monospace box can't push the layout wider. */
+  .grid, .box, #readoutSection, #boot, #result { min-width: 0; max-width: 100%; }
 
   .prompt { color: var(--muted); margin-bottom: 22px; }
   .prompt a.u { color: var(--clay); text-decoration: none; border-bottom: 1px dotted transparent; }
