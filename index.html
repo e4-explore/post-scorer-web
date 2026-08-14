@@ -331,18 +331,25 @@
 
   const shown = () => !$('#readoutSection').hidden && $('#result').children.length > 0;
 
-  // Loading log — stays present above the readout.
-  async function boot() {
+  // Loading log — shown immediately on enter and kept SPINNING until `done`
+  // settles. The grade is now an LLM call (a few seconds on a cache miss), so the
+  // spinner has to hold for the whole request, not play for a fixed ~800ms.
+  async function boot(done) {
     const b = $('#boot');
     b.innerHTML = '<div class="bootline"><span class="spin">⠋</span> scoring against X ranking model…</div>';
     const spin = b.querySelector('.spin');
     let i = 0; const iv = setInterval(() => { spin.textContent = SPIN[i = (i + 1) % SPIN.length]; }, 75);
+    let settled = false;
+    Promise.resolve(done).then(() => { settled = true; }, () => { settled = true; });
     await sleep(280);
-    for (const line of ['features extracted', 'engagement + risk estimated', 'reach score computed']) {
+    for (const line of ['features extracted', 'asking the model…', 'engagement + risk estimated']) {
       const el = document.createElement('div'); el.className = 'bootline';
       el.innerHTML = `<span class="ok">✓</span> ${line}`;
       b.appendChild(el); await sleep(170);
     }
+    // Hold the spinner until the grade actually arrives (cache hits resolve fast;
+    // a cold LLM grade takes longer).
+    while (!settled) await sleep(75);
     clearInterval(iv);
     spin.textContent = '✓';
     await sleep(120);
@@ -369,23 +376,26 @@
   async function runScore() {
     if (running) return;
     if (!draft.value.trim()) return;
+    running = true;
     unlockLayout();
     const sec = $('#readoutSection');
-    let r;
-    try {
-      r = await evalNow();
-    } catch {
-      running = false;
-      sec.hidden = false;
-      $('#boot').innerHTML = '';
-      $('#result').innerHTML = '<div class="tline done c-red">scoring service unreachable — press enter to retry</div>';
-      return;
-    }
-    if (!r) { sec.hidden = true; $('#result').innerHTML = ''; $('#boot').innerHTML = ''; return; }
-    running = true;
+    // Reveal the readout and start the loading log IMMEDIATELY, then fire the
+    // request concurrently — so pressing enter shows the spinner right away
+    // instead of a dead screen until the (now slower, LLM-backed) grade returns.
     sec.hidden = false;
     $('#result').innerHTML = '';
-    await boot();
+    const gradePromise = evalNow();
+    let r;
+    try {
+      await boot(gradePromise.catch(() => {})); // spinner holds until the fetch settles
+      r = await gradePromise;
+    } catch {
+      $('#boot').innerHTML = '';
+      $('#result').innerHTML = '<div class="tline done c-red">scoring service unreachable — press enter to retry</div>';
+      running = false;
+      return;
+    }
+    if (!r) { sec.hidden = true; $('#result').innerHTML = ''; $('#boot').innerHTML = ''; running = false; return; }
     await paint(r, true);
     running = false;
   }
