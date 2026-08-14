@@ -213,6 +213,20 @@
   const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const span = (t, c) => c ? `<span class="${c}">${esc(t)}</span>` : esc(t);
   const spad = (n) => ' '.repeat(Math.max(0, n));
+  // Word-wrap a sentence to lines no wider than `width` visible chars, so the
+  // critique fits inside the fixed-width box (borders stay aligned).
+  function wrapText(text, width) {
+    const words = String(text).split(/\s+/).filter(Boolean);
+    const lines = [];
+    let cur = '';
+    for (const w of words) {
+      if (!cur) { cur = w; }
+      else if ((cur + ' ' + w).length <= width) { cur += ' ' + w; }
+      else { lines.push(cur); cur = w; }
+    }
+    if (cur) lines.push(cur);
+    return lines;
+  }
 
   function buildLines(r) {
     const s = r.score, band = bandClass(s);
@@ -254,8 +268,8 @@
     L.push(blank());
     L.push(line(span('weak spots ', 'muted2') + span(`[${r.issues.length}]`, 'ink'), `weak spots [${r.issues.length}]`.length));
     if (!r.issues.length) {
-      const html = span('✓', 'ink') + span(' no mechanical weak spots. ', 'muted2') + span('pro adds the semantic read.', 'dim');
-      L.push(line(html, '✓ no mechanical weak spots. pro adds the semantic read.'.length));
+      const html = span('✓', 'ink') + span(' no mechanical weak spots.', 'muted2');
+      L.push(line(html, '✓ no mechanical weak spots.'.length));
     } else {
       const LBL = { high: 'HIGH', medium: 'MED', low: 'LOW' };
       const CLS = { high: 'c-red', medium: 'c-amber', low: 'dim' };
@@ -271,6 +285,18 @@
       });
     }
     L.push(blank());
+
+    // biggest problem — the LLM's one-line semantic read. Free now (same grade
+    // on every plan); only present when the server graded with the model
+    // (predictionSource "hybrid"), so it's skipped on the deterministic path.
+    if (r.critique) {
+      L.push(divider());
+      L.push(blank());
+      const tag = r.predictionSource === 'hybrid' ? ' · llm' : '';
+      L.push(line(span('biggest problem', 'muted2') + span(tag, 'dim'), ('biggest problem' + tag).length));
+      for (const wl of wrapText(r.critique, CW - 2)) L.push(line(span(wl, 'ink'), wl.length));
+      L.push(blank());
+    }
 
     // Upsell / "requires license" section — hidden for now. Restore to re-enable
     // as boxed line()s before the bottom border below.
@@ -425,7 +451,7 @@
     if (e.target && e.target.id === 'proLink') {
       e.preventDefault();
       if (!document.getElementById('proNote')) {
-        e.target.insertAdjacentHTML('afterend', '<div id="proNote" class="tline done dim" style="margin-top:6px">pro — llm-scored hook, written fixes &amp; auto-optimize — is coming. accounts &amp; purchase land next.</div>');
+        e.target.insertAdjacentHTML('afterend', '<div id="proNote" class="tline done dim" style="margin-top:6px">the llm grade + critique are free. pro — written fixes &amp; auto-optimize — is coming. accounts &amp; purchase land next.</div>');
       }
       e.target.style.pointerEvents = 'none';
     }
